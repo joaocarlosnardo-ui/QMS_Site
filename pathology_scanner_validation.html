@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Pathology Scanner — Clinical Validation Control</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --blue:    #1a5f9e;
+      --blue-lt: #2d7dd2;
+      --blue-bg: #e8f1fb;
+      --green:   #1e7a4a;
+      --green-lt:#27ae60;
+      --amber:   #c97d00;
+      --red:     #c0392b;
+      --grey-1:  #f4f6f9;
+      --grey-2:  #e1e5ec;
+      --grey-3:  #9aa3b0;
+      --text:    #1c2330;
+      --white:   #ffffff;
+      --radius:  6px;
+      --shadow:  0 2px 8px rgba(0,0,0,.12);
+    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
+           background: var(--grey-1); color: var(--text); }
+    a { color: var(--blue-lt); text-decoration: none; }
+
+    /* ── Top Bar ─────────────────────────────────────────────────── */
+    header {
+      background: var(--blue);
+      color: var(--white);
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 24px; height: 56px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    }
+    header .logo { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+    header .subtitle { font-size: 12px; opacity: .8; }
+    header .spacer { flex: 1; }
+    header .badge {
+      background: rgba(255,255,255,.18); border-radius: 20px;
+      padding: 4px 12px; font-size: 12px;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+    .container { max-width: 1280px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── Tab Nav ─────────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--grey-2);
+            margin-bottom: 24px; overflow-x: auto; }
+    .tab-btn {
+      background: none; border: none; cursor: pointer;
+      padding: 10px 18px; font-size: 13px; font-weight: 600;
+      color: var(--grey-3); border-bottom: 3px solid transparent;
+      margin-bottom: -2px; white-space: nowrap; transition: color .15s;
+    }
+    .tab-btn:hover { color: var(--blue); }
+    .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Cards ───────────────────────────────────────────────────── */
+    .card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 20px; margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 700; color: var(--blue);
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-title .icon { font-size: 18px; }
+
+    /* ── KPI Row ─────────────────────────────────────────────────── */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 18px 20px;
+      border-left: 4px solid var(--blue);
+    }
+    .kpi.green  { border-color: var(--green-lt); }
+    .kpi.amber  { border-color: var(--amber); }
+    .kpi.red    { border-color: var(--red); }
+    .kpi-val  { font-size: 32px; font-weight: 700; line-height: 1; }
+    .kpi-lbl  { font-size: 11px; color: var(--grey-3); margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+
+    /* ── Status Badge ────────────────────────────────────────────── */
+    .badge-status {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+    }
+    .s-pass    { background: #d4f0e0; color: var(--green); }
+    .s-fail    { background: #fde8e8; color: var(--red); }
+    .s-pending { background: #fff3cd; color: var(--amber); }
+    .s-na      { background: var(--grey-2); color: var(--grey-3); }
+    .s-active  { background: #d0e9ff; color: var(--blue); }
+
+    /* ── Table ───────────────────────────────────────────────────── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead tr { background: var(--blue-bg); }
+    th { text-align: left; padding: 10px 12px; font-weight: 700; color: var(--blue); font-size: 12px; letter-spacing: .3px; }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--grey-2); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--grey-1); }
+
+    /* ── Forms ───────────────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 12px; font-weight: 600; color: var(--grey-3); text-transform: uppercase; letter-spacing: .4px; }
+    input, select, textarea {
+      border: 1px solid var(--grey-2); border-radius: var(--radius);
+      padding: 8px 10px; font-size: 13px; color: var(--text);
+      background: var(--white); transition: border-color .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--blue-lt);
+      box-shadow: 0 0 0 3px var(--blue-bg);
+    }
+    textarea { resize: vertical; min-height: 72px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      border: none; transition: filter .15s;
+    }
+    .btn:hover { filter: brightness(.92); }
+    .btn-primary { background: var(--blue); color: var(--white); }
+    .btn-success { background: var(--green-lt); color: var(--white); }
+    .btn-danger  { background: var(--red); color: var(--white); }
+    .btn-outline { background: transparent; border: 1px solid var(--grey-2); color: var(--text); }
+    .btn-sm { padding: 4px 12px; font-size: 12px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+    /* ── Modal ───────────────────────────────────────────────────── */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--white); border-radius: 10px;
+      width: 90%; max-width: 640px; max-height: 90vh;
+      overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      padding: 28px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--blue); }
+    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--grey-3); line-height: 1; }
+
+    /* ── Progress ────────────────────────────────────────────────── */
+    .progress-bar { background: var(--grey-2); border-radius: 20px; height: 8px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; border-radius: 20px; background: var(--green-lt); transition: width .4s; }
+    .progress-fill.amber { background: var(--amber); }
+    .progress-fill.red   { background: var(--red); }
+
+    /* ── Protocol Steps ──────────────────────────────────────────── */
+    .step-list { list-style: none; counter-reset: step-ctr; }
+    .step-item {
+      counter-increment: step-ctr;
+      display: flex; gap: 14px; margin-bottom: 14px; align-items: flex-start;
+    }
+    .step-num {
+      min-width: 28px; height: 28px; border-radius: 50%;
+      background: var(--blue); color: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .step-num.done  { background: var(--green-lt); }
+    .step-num.fail  { background: var(--red); }
+    .step-body { flex: 1; }
+    .step-title-txt { font-weight: 600; margin-bottom: 2px; }
+    .step-desc { color: var(--grey-3); font-size: 12px; }
+
+    /* ── Audit Log ───────────────────────────────────────────────── */
+    .log-entry {
+      padding: 10px 14px; border-left: 3px solid var(--grey-2);
+      margin-bottom: 10px; background: var(--grey-1); border-radius: 0 var(--radius) var(--radius) 0;
+    }
+    .log-entry.pass { border-color: var(--green-lt); }
+    .log-entry.fail { border-color: var(--red); }
+    .log-entry.info { border-color: var(--blue-lt); }
+    .log-meta { font-size: 11px; color: var(--grey-3); margin-top: 4px; }
+
+    /* ── Misc ────────────────────────────────────────────────────── */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .section-title { font-size: 15px; font-weight: 700; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; margin-bottom: 16px; }
+    .info-item label { display: block; font-size: 11px; font-weight: 700; color: var(--grey-3); text-transform: uppercase; margin-bottom: 2px; }
+    .info-item span  { font-size: 13px; font-weight: 500; }
+    .divider { border: none; border-top: 1px solid var(--grey-2); margin: 20px 0; }
+    .text-muted { color: var(--grey-3); font-size: 12px; }
+    .flex-row  { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .mt-4  { margin-top: 16px; }
+    .chip  { background: var(--blue-bg); color: var(--blue); padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+
+    @media (max-width: 600px) {
+      .kpi-val { font-size: 24px; }
+      .modal   { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     TOP BAR
+══════════════════════════════════════════════════════════════════════ -->
+<header>
+  <div>
+    <div class="logo">&#xf0c3; PathVal QMS</div>
+    <div class="subtitle">Digital Pathology Scanner — Clinical Validation Control</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="badge" id="currentUser">User: QA Manager</div>
+  <div class="badge" id="headerDate"></div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MAIN
+══════════════════════════════════════════════════════════════════════ -->
+<div class="container">
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi">       <div class="kpi-val" id="kpiScanners">0</div><div class="kpi-lbl">Registered Scanners</div></div>
+    <div class="kpi green"> <div class="kpi-val" id="kpiPassed">0</div>  <div class="kpi-lbl">Validation Passed</div></div>
+    <div class="kpi amber"> <div class="kpi-val" id="kpiPending">0</div> <div class="kpi-lbl">In Progress</div></div>
+    <div class="kpi red">   <div class="kpi-val" id="kpiFailed">0</div>  <div class="kpi-lbl">Failed / Needs Review</div></div>
+    <div class="kpi">       <div class="kpi-val" id="kpiExpiring">0</div><div class="kpi-lbl">Expiring ≤ 90 days</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab-btn"        onclick="switchTab('scanners')">Scanners</button>
+    <button class="tab-btn"        onclick="switchTab('protocols')">Validation Protocols</button>
+    <button class="tab-btn"        onclick="switchTab('tests')">Test Records</button>
+    <button class="tab-btn"        onclick="switchTab('calibration')">Calibration</button>
+    <button class="tab-btn"        onclick="switchTab('reports')">Reports &amp; Audit</button>
+  </div>
+
+  <!-- ───────────────────── TAB: DASHBOARD ─────────────────────── -->
+  <div class="tab-pane active" id="tab-dashboard">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#x1f4ca;</span> Validation Status Overview</div>
+        <div id="dashStatusList"><p class="text-muted">No scanners registered yet.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#x26a0;&#xfe0f;</span> Upcoming Actions</div>
+        <div id="dashActions"><p class="text-muted">No pending actions.</p></div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1">
+        <div class="card-title"><span class="icon">&#x1f4cb;</span> Recent Audit Events</div>
+        <div id="dashAuditRecent"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ───────────────────── TAB: SCANNERS ─────────────────────── -->
+  <div class="tab-pane" id="tab-scanners">
+
+    <div class="section-header">
+      <span class="section-title">Scanner Inventory</span>
+      <button class="btn btn-primary" onclick="openModal('modalScanner')">+ Register Scanner</button>
+    </div>
+
+    <div class="card">
+      <div class="tbl-wrap">
+        <table id="tblScanners">
+          <thead>
+            <tr>
+              <th>ID</th><th>Manufacturer</th><th>Model</th><th>Serial No.</th>
+              <th>Location</th><th>IQ</th><th>OQ</th><th>PQ</th>
+              <th>Overall</th><th>Valid Until</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="scannerBody">
+            <tr><td colspan="11" class="text-muted" style="text-align:center;padding:24px">No scanners registered.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────── TAB: PROTOCOLS ─────────────────────── -->
+  <div class="tab-pane" id="tab-protocols">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px">
+
+      <!-- IQ Card -->
+      <div class="card">
+        <div class="card-title"><span class="chip">IQ</span> Installation Qualification</div>
+        <p class="text-muted" style="margin-bottom:14px">Verify that the scanner is installed correctly and all hardware/software components meet specifications.</p>
+        <ul class="step-list" id="iqSteps"></ul>
+      </div>
+
+      <!-- OQ Card -->
+      <div class="card">
+        <div class="card-title"><span class="chip">OQ</span> Operational Qualification</div>
+        <p class="text-muted" style="margin-bottom:14px">Confirm that the scanner operates within defined limits under normal and edge-case conditions.</p>
+        <ul class="step-list" id="oqSteps"></ul>
+      </div>
+
+      <!-- PQ Card -->
+      <div class="card">
+        <div class="card-title"><span class="chip">PQ</span> Performance Qualification</div>
+        <p class="text-muted" style="margin-bottom:14px">Demonstrate that the system consistently performs to specification under routine clinical conditions.</p>
+        <ul class="step-list" id="pqSteps"></ul>
+      </div>
+
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-title"><span class="icon">&#x1f4dc;</span> Applicable Standards &amp; Regulations</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Standard / Guideline</th><th>Scope</th><th>Applicability</th></tr></thead>
+          <tbody>
+            <tr><td>ISO 15189:2022</td><td>Medical laboratory quality &amp; competence</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+            <tr><td>IEC 62304</td><td>Medical device software lifecycle</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+            <tr><td>IEC 62366-1</td><td>Usability engineering</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+            <tr><td>FDA 21 CFR Part 11</td><td>Electronic records &amp; signatures</td><td><span class="badge-status s-pending">If applicable</span></td></tr>
+            <tr><td>CAP / CLIA Guidelines</td><td>Digital pathology WSI validation</td><td><span class="badge-status s-active">Mandatory (US)</span></td></tr>
+            <tr><td>College of American Pathologists (CAP) Protocol</td><td>WSI concordance ≥95%</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+            <tr><td>EU IVDR 2017/746</td><td>In-vitro diagnostic regulation</td><td><span class="badge-status s-pending">If EU market</span></td></tr>
+            <tr><td>ISO 13485:2016</td><td>QMS for medical devices</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+            <tr><td>DICOM / HL7 FHIR</td><td>Interoperability &amp; data standards</td><td><span class="badge-status s-active">Mandatory</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────── TAB: TEST RECORDS ─────────────────────── -->
+  <div class="tab-pane" id="tab-tests">
+
+    <div class="section-header">
+      <span class="section-title">Test Records</span>
+      <button class="btn btn-primary" onclick="openModal('modalTest')">+ Add Test Result</button>
+    </div>
+
+    <div class="card">
+      <div class="flex-row" style="margin-bottom:14px">
+        <select id="filterScanner" onchange="renderTests()" style="min-width:180px">
+          <option value="">All Scanners</option>
+        </select>
+        <select id="filterPhase" onchange="renderTests()">
+          <option value="">All Phases</option>
+          <option>IQ</option><option>OQ</option><option>PQ</option>
+        </select>
+        <select id="filterResult" onchange="renderTests()">
+          <option value="">All Results</option>
+          <option>PASS</option><option>FAIL</option><option>PENDING</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table id="tblTests">
+          <thead>
+            <tr>
+              <th>#</th><th>Date</th><th>Scanner</th><th>Phase</th>
+              <th>Test Item</th><th>Criterion</th><th>Observed Value</th>
+              <th>Result</th><th>Tester</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="testBody">
+            <tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px">No test records found.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────── TAB: CALIBRATION ─────────────────────── -->
+  <div class="tab-pane" id="tab-calibration">
+
+    <div class="section-header">
+      <span class="section-title">Calibration Records</span>
+      <button class="btn btn-primary" onclick="openModal('modalCalibration')">+ Add Calibration</button>
+    </div>
+
+    <div class="card">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Scanner</th><th>Calibration Type</th>
+              <th>Standard Used</th><th>Result</th><th>Next Due</th>
+              <th>Technician</th><th>Certificate No.</th>
+            </tr>
+          </thead>
+          <tbody id="calibrationBody">
+            <tr><td colspan="8" class="text-muted" style="text-align:center;padding:24px">No calibration records.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-title"><span class="icon">&#x1f4cd;</span> Calibration Parameters</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Parameter</th><th>Acceptable Range</th><th>Frequency</th><th>Reference Standard</th></tr></thead>
+          <tbody>
+            <tr><td>Spatial Resolution (µm/pixel)</td><td>≤ 0.25 µm/px at 40×</td><td>6 months</td><td>Stage micrometer NIST-traceable</td></tr>
+            <tr><td>Focus Accuracy</td><td>Z-deviation ≤ 1 µm</td><td>6 months</td><td>Test slide (ring focus)</td></tr>
+            <tr><td>Color Accuracy (ΔE)</td><td>ΔE ≤ 3.0</td><td>Quarterly</td><td>Macbeth Color Checker D65</td></tr>
+            <tr><td>Light Uniformity</td><td>≥ 90% field uniformity</td><td>Quarterly</td><td>Blank slide flat-field correction</td></tr>
+            <tr><td>Stage Positioning Error</td><td>≤ 2 µm</td><td>Annual</td><td>NIST glass slide grid</td></tr>
+            <tr><td>Scan Speed</td><td>Per manufacturer spec ±10%</td><td>Annual</td><td>Internal timer protocol</td></tr>
+            <tr><td>File Integrity (SHA-256)</td><td>Bit-perfect round-trip</td><td>Every scan batch</td><td>Hash comparison log</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ───────────────────── TAB: REPORTS ─────────────────────── -->
+  <div class="tab-pane" id="tab-reports">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-title"><span class="icon">&#x1f4e4;</span> Generate Report</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Report Type</label>
+            <select id="reportType">
+              <option>Validation Summary Report</option>
+              <option>IQ/OQ/PQ Full Protocol</option>
+              <option>Calibration Certificate Summary</option>
+              <option>Deviation / CAPA Report</option>
+              <option>Audit Trail Export</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Scanner</label>
+            <select id="reportScanner"><option value="">All Scanners</option></select>
+          </div>
+          <div class="form-group">
+            <label>Date From</label>
+            <input type="date" id="reportFrom" />
+          </div>
+          <div class="form-group">
+            <label>Date To</label>
+            <input type="date" id="reportTo" />
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="generateReport()">Generate (Print Preview)</button>
+          <button class="btn btn-outline" onclick="exportCSV()">Export CSV</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#x2139;&#xfe0f;</span> System Summary</div>
+        <div id="systemSummary" class="text-muted">No data available.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">&#x1f4d3;</span> Full Audit Trail</div>
+      <div id="auditTrail"><p class="text-muted">No audit entries yet.</p></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════════════════════════════ -->
+
+<!-- Register Scanner -->
+<div class="overlay" id="modalScanner">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Register New Scanner</span>
+      <button class="modal-close" onclick="closeModal('modalScanner')">&times;</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Scanner ID *</label><input id="sc_id" placeholder="e.g. SCN-001" /></div>
+      <div class="form-group"><label>Manufacturer *</label>
+        <select id="sc_mfr">
+          <option>Philips (Hamamatsu)</option><option>Leica Biosystems</option>
+          <option>Aperio (Leica)</option><option>3DHistech</option>
+          <option>Roche (uPath)</option><option>Olympus</option>
+          <option>Mikroscan</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Model *</label><input id="sc_model" placeholder="e.g. VENTANA DP 600" /></div>
+      <div class="form-group"><label>Serial Number *</label><input id="sc_serial" placeholder="e.g. SN-2024-00123" /></div>
+      <div class="form-group"><label>Software Version</label><input id="sc_sw" placeholder="e.g. v3.4.1" /></div>
+      <div class="form-group"><label>Location / Lab</label><input id="sc_loc" placeholder="e.g. Pathology Lab 2" /></div>
+      <div class="form-group"><label>Installation Date</label><input type="date" id="sc_instdate" /></div>
+      <div class="form-group"><label>Responsible Person</label><input id="sc_owner" placeholder="Full name" /></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Notes</label><textarea id="sc_notes"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="registerScanner()">Register</button>
+      <button class="btn btn-outline" onclick="closeModal('modalScanner')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Test Result -->
+<div class="overlay" id="modalTest">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Test Result</span>
+      <button class="modal-close" onclick="closeModal('modalTest')">&times;</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Scanner *</label>
+        <select id="t_scanner"><option value="">-- select --</option></select>
+      </div>
+      <div class="form-group"><label>Validation Phase *</label>
+        <select id="t_phase">
+          <option>IQ</option><option>OQ</option><option>PQ</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Test Date *</label><input type="date" id="t_date" /></div>
+      <div class="form-group"><label>Test Item *</label>
+        <select id="t_item">
+          <option>Physical Inspection</option>
+          <option>Software Installation Check</option>
+          <option>Network Connectivity</option>
+          <option>Spatial Resolution</option>
+          <option>Focus Accuracy</option>
+          <option>Color Accuracy (ΔE)</option>
+          <option>Light Uniformity</option>
+          <option>Scan Speed</option>
+          <option>Image Stitching Accuracy</option>
+          <option>Barcode / Label Reader</option>
+          <option>DICOM Compliance</option>
+          <option>LIS Integration</option>
+          <option>Concordance Study (WSI vs Glass)</option>
+          <option>User Acceptance Test</option>
+          <option>Security / Access Control</option>
+          <option>Backup &amp; Recovery</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Acceptance Criterion</label><input id="t_criterion" placeholder="e.g. ΔE ≤ 3.0" /></div>
+      <div class="form-group"><label>Observed Value</label><input id="t_observed" placeholder="e.g. ΔE = 1.8" /></div>
+      <div class="form-group"><label>Result *</label>
+        <select id="t_result">
+          <option>PASS</option><option>FAIL</option><option>PENDING</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Tester Name</label><input id="t_tester" placeholder="Full name" /></div>
+      <div class="form-group" style="grid-column:1/-1"><label>Remarks / Deviation</label><textarea id="t_remarks"></textarea></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addTest()">Save Test Record</button>
+      <button class="btn btn-outline" onclick="closeModal('modalTest')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Calibration -->
+<div class="overlay" id="modalCalibration">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Calibration Record</span>
+      <button class="modal-close" onclick="closeModal('modalCalibration')">&times;</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Scanner *</label>
+        <select id="cal_scanner"><option value="">-- select --</option></select>
+      </div>
+      <div class="form-group"><label>Calibration Date *</label><input type="date" id="cal_date" /></div>
+      <div class="form-group"><label>Calibration Type</label>
+        <select id="cal_type">
+          <option>Full System Calibration</option>
+          <option>Optical / Color Calibration</option>
+          <option>Spatial / Stage Calibration</option>
+          <option>Focus Calibration</option>
+          <option>Light Source Calibration</option>
+          <option>Software Self-Test</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Standard Used</label><input id="cal_std" placeholder="e.g. NIST Stage Micrometer" /></div>
+      <div class="form-group"><label>Result</label>
+        <select id="cal_result"><option>PASS</option><option>FAIL</option><option>ADJUSTED</option></select>
+      </div>
+      <div class="form-group"><label>Next Due Date</label><input type="date" id="cal_next" /></div>
+      <div class="form-group"><label>Technician</label><input id="cal_tech" placeholder="Full name" /></div>
+      <div class="form-group"><label>Certificate No.</label><input id="cal_cert" placeholder="e.g. CERT-2024-0042" /></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addCalibration()">Save</button>
+      <button class="btn btn-outline" onclick="closeModal('modalCalibration')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail View -->
+<div class="overlay" id="modalDetail">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="detailTitle">Scanner Detail</span>
+      <button class="modal-close" onclick="closeModal('modalDetail')">&times;</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════════════ -->
+<script>
+/* ── State (persisted in localStorage) ──────────────────────────────── */
+const STORE_KEY = 'pathval_data_v1';
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState(); }
+  catch { return defaultState(); }
+}
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+function defaultState() { return { scanners: [], tests: [], calibrations: [], auditLog: [] }; }
+
+let state = loadState();
+
+/* ── Protocol Definitions ─────────────────────────────────────────── */
+const IQ_STEPS = [
+  { title: 'Unboxing & Damage Inspection',    desc: 'Verify no shipping damage; confirm delivered components match packing list.' },
+  { title: 'Hardware Installation',           desc: 'Mount scanner per manufacturer IFU; confirm power, cabling and ventilation.' },
+  { title: 'Software Installation',           desc: 'Install WSI software; verify version matches approved build list.' },
+  { title: 'Network Configuration',           desc: 'Assign static IP, verify DICOM node connection to PACS/LIS.' },
+  { title: 'User Account Setup',              desc: 'Create role-based accounts; verify password policy enforced.' },
+  { title: 'Safety Check',                    desc: 'Electrical safety test; laser/UV interlocks operational if applicable.' },
+  { title: 'IQ Documentation Sign-off',       desc: 'Responsible person reviews and signs IQ report with date/revision.' },
+];
+const OQ_STEPS = [
+  { title: 'Power-On Self-Test',              desc: 'Scanner passes internal diagnostics without error codes.' },
+  { title: 'Spatial Resolution',             desc: 'Measure µm/pixel using stage micrometer; must meet spec at 20× and 40×.' },
+  { title: 'Focus Accuracy',                  desc: 'Z-stack deviation ≤ 1 µm on reference slide.' },
+  { title: 'Color Accuracy',                  desc: 'ΔE ≤ 3.0 using Macbeth Color Checker under D65 illuminant.' },
+  { title: 'Light Field Uniformity',          desc: '≥ 90% uniformity across full scan field.' },
+  { title: 'Scan Speed',                      desc: 'Full-slide scan time within ±10% of manufacturer specification.' },
+  { title: 'DICOM / HL7 Connectivity',        desc: 'Successful DICOM C-STORE and worklist query to PACS.' },
+  { title: 'OQ Documentation Sign-off',       desc: 'QA engineer reviews and signs OQ report.' },
+];
+const PQ_STEPS = [
+  { title: 'Concordance Study Design',        desc: 'Select ≥100 cases; pair with glass-slide diagnoses.' },
+  { title: 'Blinded WSI Reads',               desc: '2+ pathologists read WSI independently; record diagnoses.' },
+  { title: 'Concordance Calculation',         desc: 'Overall agreement ≥ 95% (CAP threshold). Calculate Cohen κ.' },
+  { title: 'Sub-group Analysis',              desc: 'Evaluate concordance by tissue type, stain (H&E, IHC, FISH).' },
+  { title: 'Turnaround Time Assessment',      desc: 'Confirm scan-to-report workflow meets departmental SLA.' },
+  { title: 'User Acceptance Testing',         desc: 'End-users (pathologists, lab staff) sign acceptance checklist.' },
+  { title: 'Training Documentation',          desc: 'Training records complete for all intended users.' },
+  { title: 'PQ Documentation Sign-off',       desc: 'Laboratory director signs final PQ report; file in QMS.' },
+];
+
+/* ── Utility ─────────────────────────────────────────────────────── */
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmt(d)  { return d ? new Date(d).toLocaleDateString('en-GB') : '—'; }
+function uid()   { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function addAudit(msg, type='info') {
+  state.auditLog.unshift({ id: uid(), ts: new Date().toISOString(), msg, type });
+  saveState(); renderAudit();
+}
+
+function scannerValidationStatus(s) {
+  const tests = state.tests.filter(t => t.scannerId === s.id);
+  const phaseStatus = phase => {
+    const pt = tests.filter(t => t.phase === phase);
+    if (!pt.length) return 'PENDING';
+    if (pt.some(t => t.result === 'FAIL')) return 'FAIL';
+    if (pt.every(t => t.result === 'PASS')) return 'PASS';
+    return 'PENDING';
+  };
+  return { iq: phaseStatus('IQ'), oq: phaseStatus('OQ'), pq: phaseStatus('PQ') };
+}
+
+function overallStatus(s) {
+  const { iq, oq, pq } = scannerValidationStatus(s);
+  if ([iq, oq, pq].every(x => x === 'PASS')) return 'PASS';
+  if ([iq, oq, pq].some(x => x === 'FAIL'))  return 'FAIL';
+  return 'PENDING';
+}
+
+function statusBadge(s) {
+  const cls = s === 'PASS' ? 's-pass' : s === 'FAIL' ? 's-fail' : 's-pending';
+  return `<span class="badge-status ${cls}">${s}</span>`;
+}
+
+/* ── Init ────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+  renderProtocolSteps();
+  renderAll();
+});
+
+/* ── Tab Switch ───────────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['dashboard','scanners','protocols','tests','calibration','reports'];
+    b.classList.toggle('active', tabs[i] === name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  renderAll();
+}
+
+/* ── Modals ───────────────────────────────────────────────────────── */
+function openModal(id) {
+  populateScannerSelects();
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+
+function populateScannerSelects() {
+  ['t_scanner','cal_scanner','reportScanner','filterScanner'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = (id === 'reportScanner' || id === 'filterScanner') ? '<option value="">All Scanners</option>' : '<option value="">-- select --</option>';
+    state.scanners.forEach(s => {
+      el.innerHTML += `<option value="${s.id}">${s.id} — ${s.model}</option>`;
+    });
+    el.value = current;
+  });
+}
+
+/* ── Register Scanner ─────────────────────────────────────────────── */
+function registerScanner() {
+  const id = document.getElementById('sc_id').value.trim();
+  if (!id) return alert('Scanner ID is required.');
+  if (state.scanners.find(s => s.id === id)) return alert('Scanner ID already exists.');
+  const s = {
+    id,
+    manufacturer: document.getElementById('sc_mfr').value,
+    model:         document.getElementById('sc_model').value.trim(),
+    serial:        document.getElementById('sc_serial').value.trim(),
+    software:      document.getElementById('sc_sw').value.trim(),
+    location:      document.getElementById('sc_loc').value.trim(),
+    installDate:   document.getElementById('sc_instdate').value,
+    owner:         document.getElementById('sc_owner').value.trim(),
+    notes:         document.getElementById('sc_notes').value.trim(),
+    validUntil:    null,
+  };
+  state.scanners.push(s);
+  saveState();
+  addAudit(`Scanner ${id} (${s.model}) registered by ${s.owner || 'unknown'}.`, 'info');
+  closeModal('modalScanner');
+  renderAll();
+  document.querySelectorAll('#modalScanner input, #modalScanner textarea').forEach(el => el.value = '');
+}
+
+/* ── Add Test Record ──────────────────────────────────────────────── */
+function addTest() {
+  const scId = document.getElementById('t_scanner').value;
+  if (!scId) return alert('Select a scanner.');
+  const t = {
+    id:        uid(),
+    scannerId: scId,
+    phase:     document.getElementById('t_phase').value,
+    date:      document.getElementById('t_date').value || today(),
+    item:      document.getElementById('t_item').value,
+    criterion: document.getElementById('t_criterion').value.trim(),
+    observed:  document.getElementById('t_observed').value.trim(),
+    result:    document.getElementById('t_result').value,
+    tester:    document.getElementById('t_tester').value.trim(),
+    remarks:   document.getElementById('t_remarks').value.trim(),
+  };
+  state.tests.push(t);
+
+  // auto-update validUntil on PQ PASS
+  if (t.phase === 'PQ' && t.result === 'PASS') {
+    const sc = state.scanners.find(s => s.id === scId);
+    if (sc) {
+      const d = new Date(t.date);
+      d.setFullYear(d.getFullYear() + 1);
+      sc.validUntil = d.toISOString().split('T')[0];
+    }
+  }
+
+  saveState();
+  addAudit(`Test [${t.phase}] "${t.item}" for ${scId}: ${t.result}${t.remarks ? ' — '+t.remarks : ''}.`, t.result === 'PASS' ? 'pass' : t.result === 'FAIL' ? 'fail' : 'info');
+  closeModal('modalTest');
+  renderAll();
+}
+
+/* ── Add Calibration ──────────────────────────────────────────────── */
+function addCalibration() {
+  const scId = document.getElementById('cal_scanner').value;
+  if (!scId) return alert('Select a scanner.');
+  const c = {
+    id:        uid(),
+    scannerId: scId,
+    date:      document.getElementById('cal_date').value || today(),
+    type:      document.getElementById('cal_type').value,
+    standard:  document.getElementById('cal_std').value.trim(),
+    result:    document.getElementById('cal_result').value,
+    nextDue:   document.getElementById('cal_next').value,
+    tech:      document.getElementById('cal_tech').value.trim(),
+    cert:      document.getElementById('cal_cert').value.trim(),
+  };
+  state.calibrations.push(c);
+  saveState();
+  addAudit(`Calibration [${c.type}] for ${scId}: ${c.result}. Next due: ${fmt(c.nextDue)}.`, c.result === 'PASS' ? 'pass' : 'info');
+  closeModal('modalCalibration');
+  renderAll();
+}
+
+/* ── Render All ───────────────────────────────────────────────────── */
+function renderAll() {
+  renderKPIs(); renderScannerTable(); renderTests();
+  renderCalibration(); renderDashboard(); renderAudit();
+  renderSystemSummary(); populateScannerSelects();
+}
+
+/* ── KPIs ─────────────────────────────────────────────────────────── */
+function renderKPIs() {
+  const statuses = state.scanners.map(s => overallStatus(s));
+  document.getElementById('kpiScanners').textContent = state.scanners.length;
+  document.getElementById('kpiPassed').textContent   = statuses.filter(x=>x==='PASS').length;
+  document.getElementById('kpiPending').textContent  = statuses.filter(x=>x==='PENDING').length;
+  document.getElementById('kpiFailed').textContent   = statuses.filter(x=>x==='FAIL').length;
+
+  const now = new Date(); const d90 = new Date(); d90.setDate(now.getDate()+90);
+  const exp = state.scanners.filter(s => s.validUntil && new Date(s.validUntil) <= d90 && new Date(s.validUntil) >= now).length;
+  document.getElementById('kpiExpiring').textContent = exp;
+}
+
+/* ── Scanner Table ────────────────────────────────────────────────── */
+function renderScannerTable() {
+  const tbody = document.getElementById('scannerBody');
+  if (!state.scanners.length) {
+    tbody.innerHTML = '<tr><td colspan="11" class="text-muted" style="text-align:center;padding:24px">No scanners registered.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.scanners.map(s => {
+    const { iq, oq, pq } = scannerValidationStatus(s);
+    const ov = overallStatus(s);
+    return `<tr>
+      <td><strong>${s.id}</strong></td>
+      <td>${s.manufacturer}</td>
+      <td>${s.model || '—'}</td>
+      <td><code>${s.serial || '—'}</code></td>
+      <td>${s.location || '—'}</td>
+      <td>${statusBadge(iq)}</td>
+      <td>${statusBadge(oq)}</td>
+      <td>${statusBadge(pq)}</td>
+      <td>${statusBadge(ov)}</td>
+      <td>${fmt(s.validUntil)}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="showDetail('${s.id}')">Detail</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteScanner('${s.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function deleteScanner(id) {
+  if (!confirm(`Delete scanner ${id} and ALL related records? This cannot be undone.`)) return;
+  state.scanners      = state.scanners.filter(s => s.id !== id);
+  state.tests         = state.tests.filter(t => t.scannerId !== id);
+  state.calibrations  = state.calibrations.filter(c => c.scannerId !== id);
+  saveState();
+  addAudit(`Scanner ${id} deleted from registry.`, 'fail');
+  renderAll();
+}
+
+/* ── Scanner Detail ───────────────────────────────────────────────── */
+function showDetail(id) {
+  const s = state.scanners.find(x => x.id === id);
+  if (!s) return;
+  const { iq, oq, pq } = scannerValidationStatus(s);
+  const ov = overallStatus(s);
+  const tests = state.tests.filter(t => t.scannerId === id);
+  const cals  = state.calibrations.filter(c => c.scannerId === id);
+
+  // progress calc
+  const phases = [iq, oq, pq];
+  const passed = phases.filter(p => p === 'PASS').length;
+  const pct = Math.round((passed/3)*100);
+
+  document.getElementById('detailTitle').textContent = `Scanner ${s.id} — ${s.model}`;
+  document.getElementById('detailBody').innerHTML = `
+    <div class="info-grid">
+      <div class="info-item"><label>Manufacturer</label><span>${s.manufacturer}</span></div>
+      <div class="info-item"><label>Model</label><span>${s.model}</span></div>
+      <div class="info-item"><label>Serial No.</label><span>${s.serial || '—'}</span></div>
+      <div class="info-item"><label>Software</label><span>${s.software || '—'}</span></div>
+      <div class="info-item"><label>Location</label><span>${s.location || '—'}</span></div>
+      <div class="info-item"><label>Installed</label><span>${fmt(s.installDate)}</span></div>
+      <div class="info-item"><label>Owner</label><span>${s.owner || '—'}</span></div>
+      <div class="info-item"><label>Valid Until</label><span>${fmt(s.validUntil)}</span></div>
+    </div>
+
+    <div style="margin:14px 0">
+      <div class="flex-row" style="margin-bottom:6px">
+        <strong>Validation Progress</strong>
+        <span class="text-muted">${passed}/3 phases passed</span>
+        ${statusBadge(ov)}
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill ${pct===100?'':'amber'}" style="width:${pct}%"></div>
+      </div>
+      <div class="flex-row" style="margin-top:8px">
+        <span>IQ: ${statusBadge(iq)}</span>
+        <span>OQ: ${statusBadge(oq)}</span>
+        <span>PQ: ${statusBadge(pq)}</span>
+      </div>
+    </div>
+    <hr class="divider">
+
+    <strong>Test Records (${tests.length})</strong>
+    <div class="tbl-wrap" style="margin-top:8px">
+    <table>
+      <thead><tr><th>Phase</th><th>Date</th><th>Test Item</th><th>Observed</th><th>Result</th></tr></thead>
+      <tbody>
+        ${tests.length ? tests.map(t=>`<tr>
+          <td>${t.phase}</td><td>${fmt(t.date)}</td><td>${t.item}</td>
+          <td>${t.observed||'—'}</td><td>${statusBadge(t.result)}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="text-muted">No tests.</td></tr>'}
+      </tbody>
+    </table>
+    </div>
+
+    <hr class="divider">
+    <strong>Calibration Records (${cals.length})</strong>
+    <div class="tbl-wrap" style="margin-top:8px">
+    <table>
+      <thead><tr><th>Date</th><th>Type</th><th>Result</th><th>Next Due</th><th>Cert.</th></tr></thead>
+      <tbody>
+        ${cals.length ? cals.map(c=>`<tr>
+          <td>${fmt(c.date)}</td><td>${c.type}</td>
+          <td>${statusBadge(c.result==='PASS'?'PASS':c.result==='FAIL'?'FAIL':'PENDING')}</td>
+          <td>${fmt(c.nextDue)}</td><td>${c.cert||'—'}</td>
+        </tr>`).join('') : '<tr><td colspan="5" class="text-muted">No calibration records.</td></tr>'}
+      </tbody>
+    </table>
+    </div>
+    ${s.notes ? `<hr class="divider"><strong>Notes:</strong><p style="margin-top:6px;color:var(--grey-3)">${s.notes}</p>` : ''}
+  `;
+  openModal('modalDetail');
+}
+
+/* ── Test Records ─────────────────────────────────────────────────── */
+function renderTests() {
+  const fSc   = document.getElementById('filterScanner')?.value || '';
+  const fPh   = document.getElementById('filterPhase')?.value   || '';
+  const fRes  = document.getElementById('filterResult')?.value  || '';
+
+  let tests = state.tests.filter(t =>
+    (!fSc  || t.scannerId === fSc) &&
+    (!fPh  || t.phase === fPh) &&
+    (!fRes || t.result === fRes)
+  ).sort((a,b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('testBody');
+  if (!tests.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="text-muted" style="text-align:center;padding:24px">No test records found.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = tests.map((t,i) => `<tr>
+    <td>${i+1}</td><td>${fmt(t.date)}</td>
+    <td><strong>${t.scannerId}</strong></td>
+    <td><span class="chip">${t.phase}</span></td>
+    <td>${t.item}</td>
+    <td class="text-muted">${t.criterion||'—'}</td>
+    <td>${t.observed||'—'}</td>
+    <td>${statusBadge(t.result)}</td>
+    <td>${t.tester||'—'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteTest('${t.id}')">Delete</button></td>
+  </tr>`).join('');
+}
+
+function deleteTest(id) {
+  if (!confirm('Delete this test record?')) return;
+  state.tests = state.tests.filter(t => t.id !== id);
+  saveState(); addAudit('Test record deleted.', 'fail'); renderAll();
+}
+
+/* ── Calibration Table ────────────────────────────────────────────── */
+function renderCalibration() {
+  const tbody = document.getElementById('calibrationBody');
+  if (!state.calibrations.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-muted" style="text-align:center;padding:24px">No calibration records.</td></tr>';
+    return;
+  }
+  const sorted = [...state.calibrations].sort((a,b) => b.date.localeCompare(a.date));
+  tbody.innerHTML = sorted.map(c => `<tr>
+    <td>${fmt(c.date)}</td>
+    <td><strong>${c.scannerId}</strong></td>
+    <td>${c.type}</td>
+    <td>${c.standard||'—'}</td>
+    <td>${statusBadge(c.result==='PASS'?'PASS':c.result==='FAIL'?'FAIL':'PENDING')}</td>
+    <td>${fmt(c.nextDue)}</td>
+    <td>${c.tech||'—'}</td>
+    <td>${c.cert||'—'}</td>
+  </tr>`).join('');
+}
+
+/* ── Dashboard ────────────────────────────────────────────────────── */
+function renderDashboard() {
+  // Status list
+  const el = document.getElementById('dashStatusList');
+  if (!state.scanners.length) {
+    el.innerHTML = '<p class="text-muted">No scanners registered yet.</p>';
+  } else {
+    el.innerHTML = state.scanners.map(s => {
+      const { iq, oq, pq } = scannerValidationStatus(s);
+      const ov = overallStatus(s);
+      const passed = [iq,oq,pq].filter(x=>x==='PASS').length;
+      const pct = Math.round((passed/3)*100);
+      return `<div style="margin-bottom:14px">
+        <div class="flex-row" style="margin-bottom:4px">
+          <strong>${s.id}</strong>
+          <span class="text-muted">${s.model}</span>
+          ${statusBadge(ov)}
+        </div>
+        <div class="flex-row" style="font-size:12px;margin-bottom:4px">
+          IQ: ${statusBadge(iq)} &nbsp; OQ: ${statusBadge(oq)} &nbsp; PQ: ${statusBadge(pq)}
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill ${pct===100?'':'amber'}" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Upcoming actions
+  const actEl = document.getElementById('dashActions');
+  const now = new Date();
+  const actions = [];
+  state.scanners.forEach(s => {
+    if (s.validUntil) {
+      const d = new Date(s.validUntil);
+      const days = Math.round((d - now) / 86400000);
+      if (days <= 90) actions.push({ label: `Re-validate ${s.id} (${s.model})`, days, type: days < 30 ? 'fail' : 'pending' });
+    }
+  });
+  state.calibrations.forEach(c => {
+    if (c.nextDue) {
+      const d = new Date(c.nextDue);
+      const days = Math.round((d - now) / 86400000);
+      if (days <= 60) actions.push({ label: `Calibration due: ${c.scannerId} — ${c.type}`, days, type: days < 14 ? 'fail' : 'pending' });
+    }
+  });
+  actEl.innerHTML = actions.length
+    ? actions.sort((a,b)=>a.days-b.days).map(a => `
+      <div class="log-entry ${a.type}" style="margin-bottom:8px">
+        ${a.label}
+        <div class="log-meta">Due in <strong>${a.days}</strong> day(s)</div>
+      </div>`).join('')
+    : '<p class="text-muted">No upcoming actions.</p>';
+
+  // Recent audit
+  const auEl = document.getElementById('dashAuditRecent');
+  const recent = state.auditLog.slice(0, 5);
+  auEl.innerHTML = recent.length
+    ? recent.map(e => `<div class="log-entry ${e.type}">
+        ${e.msg}<div class="log-meta">${new Date(e.ts).toLocaleString('en-GB')}</div>
+      </div>`).join('')
+    : '<p class="text-muted">No audit events.</p>';
+}
+
+/* ── Audit Trail ──────────────────────────────────────────────────── */
+function renderAudit() {
+  const el = document.getElementById('auditTrail');
+  if (!state.auditLog.length) { el.innerHTML = '<p class="text-muted">No audit entries yet.</p>'; return; }
+  el.innerHTML = state.auditLog.map(e => `
+    <div class="log-entry ${e.type}">
+      ${e.msg}
+      <div class="log-meta">${new Date(e.ts).toLocaleString('en-GB')}</div>
+    </div>`).join('');
+}
+
+/* ── System Summary ───────────────────────────────────────────────── */
+function renderSystemSummary() {
+  const el = document.getElementById('systemSummary');
+  const n = state.scanners.length;
+  if (!n) { el.innerHTML = '<p>No data.</p>'; return; }
+  const statuses = state.scanners.map(s => overallStatus(s));
+  el.innerHTML = `
+    <div class="info-grid">
+      <div class="info-item"><label>Total Scanners</label><span>${n}</span></div>
+      <div class="info-item"><label>Validated</label><span>${statuses.filter(x=>x==='PASS').length}</span></div>
+      <div class="info-item"><label>In Progress</label><span>${statuses.filter(x=>x==='PENDING').length}</span></div>
+      <div class="info-item"><label>Failed</label><span>${statuses.filter(x=>x==='FAIL').length}</span></div>
+      <div class="info-item"><label>Total Tests</label><span>${state.tests.length}</span></div>
+      <div class="info-item"><label>Total Calibrations</label><span>${state.calibrations.length}</span></div>
+      <div class="info-item"><label>Audit Entries</label><span>${state.auditLog.length}</span></div>
+      <div class="info-item"><label>Report Date</label><span>${new Date().toLocaleDateString('en-GB')}</span></div>
+    </div>`;
+}
+
+/* ── Protocol Steps ───────────────────────────────────────────────── */
+function renderProtocolSteps() {
+  function render(id, steps) {
+    document.getElementById(id).innerHTML = steps.map((s,i) =>
+      `<li class="step-item">
+        <div class="step-num">${i+1}</div>
+        <div class="step-body">
+          <div class="step-title-txt">${s.title}</div>
+          <div class="step-desc">${s.desc}</div>
+        </div>
+      </li>`).join('');
+  }
+  render('iqSteps', IQ_STEPS);
+  render('oqSteps', OQ_STEPS);
+  render('pqSteps', PQ_STEPS);
+}
+
+/* ── Generate Report (Print) ──────────────────────────────────────── */
+function generateReport() {
+  const type    = document.getElementById('reportType').value;
+  const scId    = document.getElementById('reportScanner').value;
+  const fromDt  = document.getElementById('reportFrom').value;
+  const toDt    = document.getElementById('reportTo').value;
+
+  const scanners = scId ? state.scanners.filter(s=>s.id===scId) : state.scanners;
+  const tests    = state.tests.filter(t =>
+    (!scId   || t.scannerId === scId) &&
+    (!fromDt || t.date >= fromDt) &&
+    (!toDt   || t.date <= toDt));
+  const cals = state.calibrations.filter(c =>
+    (!scId   || c.scannerId === scId) &&
+    (!fromDt || c.date >= fromDt) &&
+    (!toDt   || c.date <= toDt));
+
+  const w = window.open('','_blank','width=900,height=700');
+  w.document.write(`<!DOCTYPE html><html><head>
+    <title>${type}</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;font-size:13px;padding:32px;color:#1c2330}
+      h1{color:#1a5f9e;border-bottom:2px solid #1a5f9e;padding-bottom:8px}
+      h2{color:#2d7dd2;margin-top:24px}
+      table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+      th{background:#e8f1fb;padding:8px;text-align:left;color:#1a5f9e}
+      td{padding:8px;border-bottom:1px solid #e1e5ec}
+      .pass{color:#1e7a4a;font-weight:700} .fail{color:#c0392b;font-weight:700}
+      .pending{color:#c97d00;font-weight:700}
+      .footer{margin-top:40px;font-size:11px;color:#9aa3b0;border-top:1px solid #e1e5ec;padding-top:8px}
+    </style></head><body>
+    <h1>${type}</h1>
+    <p>Generated: ${new Date().toLocaleString('en-GB')} &nbsp;|&nbsp;
+       Scanner filter: ${scId||'All'} &nbsp;|&nbsp;
+       Date range: ${fromDt||'—'} to ${toDt||'—'}</p>
+
+    <h2>Scanner Summary</h2>
+    <table><thead><tr><th>ID</th><th>Model</th><th>Serial</th><th>Location</th><th>IQ</th><th>OQ</th><th>PQ</th><th>Overall</th><th>Valid Until</th></tr></thead>
+    <tbody>
+    ${scanners.map(s=>{
+      const {iq,oq,pq}=scannerValidationStatus(s);const ov=overallStatus(s);
+      return `<tr><td>${s.id}</td><td>${s.model}</td><td>${s.serial||'—'}</td>
+        <td>${s.location||'—'}</td>
+        <td class="${iq.toLowerCase()}">${iq}</td>
+        <td class="${oq.toLowerCase()}">${oq}</td>
+        <td class="${pq.toLowerCase()}">${pq}</td>
+        <td class="${ov.toLowerCase()}">${ov}</td>
+        <td>${fmt(s.validUntil)}</td></tr>`;
+    }).join('')||'<tr><td colspan="9">No scanners.</td></tr>'}
+    </tbody></table>
+
+    <h2>Test Records (${tests.length})</h2>
+    <table><thead><tr><th>Date</th><th>Scanner</th><th>Phase</th><th>Test Item</th><th>Criterion</th><th>Observed</th><th>Result</th><th>Tester</th></tr></thead>
+    <tbody>
+    ${tests.map(t=>`<tr><td>${fmt(t.date)}</td><td>${t.scannerId}</td><td>${t.phase}</td>
+      <td>${t.item}</td><td>${t.criterion||'—'}</td><td>${t.observed||'—'}</td>
+      <td class="${t.result.toLowerCase()}">${t.result}</td><td>${t.tester||'—'}</td></tr>`).join('')||'<tr><td colspan="8">No test records.</td></tr>'}
+    </tbody></table>
+
+    <h2>Calibration Records (${cals.length})</h2>
+    <table><thead><tr><th>Date</th><th>Scanner</th><th>Type</th><th>Standard</th><th>Result</th><th>Next Due</th><th>Cert.</th></tr></thead>
+    <tbody>
+    ${cals.map(c=>`<tr><td>${fmt(c.date)}</td><td>${c.scannerId}</td><td>${c.type}</td>
+      <td>${c.standard||'—'}</td><td class="${c.result.toLowerCase()}">${c.result}</td>
+      <td>${fmt(c.nextDue)}</td><td>${c.cert||'—'}</td></tr>`).join('')||'<tr><td colspan="7">No calibration records.</td></tr>'}
+    </tbody></table>
+
+    <div class="footer">PathVal QMS — Digital Pathology Scanner Clinical Validation Control &nbsp;|&nbsp; ${new Date().getFullYear()}</div>
+    </body></html>`);
+  w.document.close();
+  setTimeout(()=>w.print(),400);
+  addAudit(`Report "${type}" generated for scanner: ${scId||'All'}.`, 'info');
+}
+
+/* ── Export CSV ───────────────────────────────────────────────────── */
+function exportCSV() {
+  const rows = [['Date','Scanner','Phase','Test Item','Criterion','Observed','Result','Tester','Remarks']];
+  state.tests.forEach(t => rows.push([t.date,t.scannerId,t.phase,t.item,t.criterion,t.observed,t.result,t.tester,t.remarks]));
+  const csv = rows.map(r => r.map(c => `"${(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `pathval_tests_${today()}.csv`;
+  a.click();
+  addAudit('Test records exported as CSV.', 'info');
+}
+</script>
+</body>
+</html>
